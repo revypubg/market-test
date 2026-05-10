@@ -1,33 +1,18 @@
 import telebot
 from telebot import types
 import json, os, time
+from flask import Flask
+from threading import Thread
 
 # ================= AYARLAR =================
-BOT_TOKEN = "8725491244:AAEJDvExPeJwY31eIGQwdTwmfJF5I44x-1I-1I"
+# Yeni tokenini buraya ekledim
+BOT_TOKEN = "8725491244:AAGy5VztUUcPJDLE9ZAFUVaxcRlcf2QwVMM"
 bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask('')
 
-# Buraya Kurucu ve 2 Adminin ID numaralarını ekle (Şu an seninkini yazdım)
-# Örnek: [SeninID, 1.AdminID, 2.AdminID]
 ADMIN_ID = [8695334986]  
-
-LOG_KANAL = "-1003986617455" # -100 ile başlayan kanal ID'si
+LOG_KANAL = "-1003986617455" 
 KANALLAR = ["@PaulWalkerArsiv", "@BYZANTIUMS"]
-
-# Destek Menüsü Tasarımı
-DESTEK_MESAJI = """
-🆘 **PAUL WALKER MARKET DESTEK HATTI**
-
-Bir sorun mu yaşıyorsunuz? Ekibimize ulaşın:
-
-👑 **KURUCU**
-└ @WaIkerPaul
-
-🛡️ **ADMİNLER**
-├ @KullaniciAdi_Admin1
-
-
-📌 *Lütfen mesaj atarken Bot ID'nizi belirtmeyi unutmayın.*
-"""
 
 # ================= VERİ SİSTEMİ =================
 def load_data(file, default):
@@ -35,8 +20,10 @@ def load_data(file, default):
         with open(file, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False)
         return default
-    with open(file, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except: return default
 
 def save_data(file, data):
     with open(file, "w", encoding="utf-8") as f:
@@ -70,7 +57,7 @@ def main_menu(msg):
 def start(msg):
     user_id = str(msg.from_user.id)
     if user_id not in users:
-        users[user_id] = {"bakiye": 0, "ref_kazanc": 0}
+        users[user_id] = {"bakiye": 0}
         save_data("users.json", users)
     
     if not check_all_joins(msg.from_user.id):
@@ -82,10 +69,6 @@ def start(msg):
         return
     main_menu(msg)
 
-@bot.message_handler(func=lambda m: m.text == "📞 Destek")
-def support(msg):
-    bot.send_message(msg.chat.id, DESTEK_MESAJI, parse_mode="Markdown")
-
 @bot.callback_query_handler(func=lambda c: c.data == "check_join")
 def check_callback(call):
     if check_all_joins(call.from_user.id):
@@ -94,34 +77,10 @@ def check_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ Eksik kanallar var!", show_alert=True)
 
-# ================= MARKET & SİPARİŞ =================
-@bot.message_handler(func=lambda m: m.text == "🛒 Market")
-def market(msg):
-    if not products:
-        bot.send_message(msg.chat.id, "❌ Market şu an boş.")
-        return
-    kb = types.InlineKeyboardMarkup()
-    for pid, p in products.items():
-        kb.add(types.InlineKeyboardButton(f"{p['ad']} - {p['fiyat']}₺", callback_data=f"buy_{pid}"))
-    bot.send_message(msg.chat.id, "🛒 Bir ürün seçin:", reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("buy_"))
-def buy_callback(call):
-    pid = call.data.split("_")[1]
-    uid = str(call.from_user.id)
-    p = products[pid]
-    if users[uid]["bakiye"] < p["fiyat"]:
-        bot.answer_callback_query(call.id, "❌ Yetersiz bakiye!", show_alert=True)
-        return
-    users[uid]["bakiye"] -= p["fiyat"]
-    save_data("users.json", users)
-    bot.send_message(call.message.chat.id, "✅ Sipariş iletildi! En kısa sürede teslim edilecek.")
-    bot.send_message(LOG_KANAL, f"🚨 **YENİ SİPARİŞ!**\n👤: `{call.from_user.first_name}`\n🆔: `{uid}`\n📦: {p['ad']}")
-
-# ================= HEDİYE KODU =================
+# ================= HEDİYE KODU SİSTEMİ =================
 @bot.message_handler(func=lambda m: m.text == "🎁 Hediye Kodu")
 def promo_start(msg):
-    m = bot.send_message(msg.chat.id, "🎟 **Kodunuzu yazın:**", parse_mode="Markdown")
+    m = bot.send_message(msg.chat.id, "🎟 **Lütfen hediye kodunuzu girin:**", parse_mode="Markdown")
     bot.register_next_step_handler(m, process_promo)
 
 def process_promo(msg):
@@ -132,11 +91,11 @@ def process_promo(msg):
         if p["limit"] > 0:
             users[uid]["bakiye"] += p["miktar"]
             p["limit"] -= 1
+            bot.send_message(msg.chat.id, f"✅ Başarılı! Hesabınıza **{p['miktar']}₺** eklendi.", parse_mode="Markdown")
             if p["limit"] <= 0: del promos[code]
             save_data("users.json", users)
             save_data("promos.json", promos)
-            bot.send_message(msg.chat.id, f"✅ Hesabınıza {p['miktar']}₺ eklendi!")
-        else: bot.send_message(msg.chat.id, "❌ Limit dolmuş.")
+        else: bot.send_message(msg.chat.id, "❌ Bu kodun kullanım limiti dolmuş.")
     else: bot.send_message(msg.chat.id, "❌ Geçersiz kod.")
 
 # ================= ADMIN PANELİ =================
@@ -144,12 +103,37 @@ def process_promo(msg):
 def admin_panel(msg):
     if msg.from_user.id not in ADMIN_ID: return
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("➕ Ürün Ekle", "🎟 Kod Oluştur")
-    kb.add("💸 Bakiye Ver", "⬅️ Menü")
-    bot.send_message(msg.chat.id, "🛠 **Yönetici Paneli**", reply_markup=kb)
+    kb.add("🎟 Kod Oluştur", "💸 Bakiye Ver")
+    kb.add("⬅️ Menü")
+    bot.send_message(msg.chat.id, "🛠 **ADMİN PANELİ**", reply_markup=kb)
 
-# (Diğer admin fonksiyonları buraya eklenebilir...)
+@bot.message_handler(func=lambda m: m.text == "🎟 Kod Oluştur")
+def admin_promo_1(msg):
+    if msg.from_user.id not in ADMIN_ID: return
+    m = bot.send_message(msg.chat.id, "Oluşturulacak kodu yazın (Örn: WALKER50):")
+    bot.register_next_step_handler(m, admin_promo_2)
 
+def admin_promo_2(msg):
+    code = msg.text.strip()
+    m = bot.send_message(msg.chat.id, f"Kod: `{code}`\nKaç ₺ bakiye versin?", parse_mode="Markdown")
+    bot.register_next_step_handler(m, admin_promo_3, code)
+
+def admin_promo_3(msg, code):
+    try:
+        miktar = int(msg.text)
+        m = bot.send_message(msg.chat.id, "Kaç kişi kullanabilsin?")
+        bot.register_next_step_handler(m, admin_promo_4, code, miktar)
+    except: bot.send_message(msg.chat.id, "❌ Hata: Sayı girmelisiniz.")
+
+def admin_promo_4(msg, code, miktar):
+    try:
+        limit = int(msg.text)
+        promos[code] = {"miktar": miktar, "limit": limit}
+        save_data("promos.json", promos)
+        bot.send_message(msg.chat.id, f"✅ Kod Oluşturuldu: `{code}`\nMiktar: {miktar}₺\nLimit: {limit}", parse_mode="Markdown")
+    except: bot.send_message(msg.chat.id, "❌ Hata: Sayı girmelisiniz.")
+
+# ================= DİĞERLERİ =================
 @bot.message_handler(func=lambda m: m.text == "💰 Bakiye")
 def bakiye(msg):
     u = users.get(str(msg.from_user.id), {"bakiye": 0})
@@ -158,5 +142,16 @@ def bakiye(msg):
 @bot.message_handler(func=lambda m: m.text == "⬅️ Menü")
 def back(msg): main_menu(msg)
 
-print("Paul Walker Market Sistemi Hazır!")
-bot.infinity_polling()
+# ================= RENDER AYAKTA TUTMA =================
+@app.route('/')
+def home(): return "Bot Aktif!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
+if __name__ == "__main__":
+    t = Thread(target=run)
+    t.start()
+    print("Sistem Başlatıldı!")
+    bot.infinity_polling()
+    
