@@ -23,7 +23,7 @@ Bir sorun mu yaşıyorsunuz? Ekibimize ulaşın:
 └ @WaIkerPaul
 
 🛡️ **ADMİNLER**
-├ @KullaniciAdi_Admin1
+├ @WaIkerPaul
 
 
 📌 *Lütfen mesaj atarken Bot ID'nizi belirtmeyi unutmayın.*
