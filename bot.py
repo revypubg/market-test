@@ -5,6 +5,7 @@ from flask import Flask
 from threading import Thread
 
 # ================= AYARLAR =================
+# LÜTFEN BURAYI KONTROL ET: Token başında veya sonunda boşluk olmamalı!
 BOT_TOKEN = "8725491244:AAGy5VztUUcPJDLE9ZAFUVaxcRlcf2QwVMM"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask('')
@@ -31,7 +32,7 @@ def save_data(file, data):
 users = load_data("users.json", {})
 products = load_data("products.json", {}) 
 promos = load_data("promos.json", {})
-user_steps = {} # Kullanıcıların hangi işlemde olduğunu tutar (Örn: ürün ekliyor mu?)
+user_steps = {}
 
 # ================= FONKSİYONLAR =================
 def check_all_joins(user_id):
@@ -56,12 +57,12 @@ def main_menu(msg):
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = str(msg.from_user.id)
-    user_steps[uid] = None # Adımı sıfırla
+    user_steps[uid] = None
     
     if uid not in users:
         users[uid] = {"bakiye": 0, "ref_puan": 0, "last_bonus": 0}
         args = msg.text.split()
-        if len(args) > 1: # Referans kontrolü
+        if len(args) > 1:
             ref_id = args[1]
             if ref_id in users and ref_id != uid:
                 users[ref_id]["bakiye"] += 1
@@ -84,7 +85,6 @@ def handle_all(msg):
     uid = str(msg.from_user.id)
     if uid not in users: return
 
-    # --- 1. ADIM KONTROLLERİ (Bir girdi bekleniyorsa) ---
     step = user_steps.get(uid)
     
     if step == "waiting_promo":
@@ -118,7 +118,25 @@ def handle_all(msg):
         user_steps[uid] = None
         return
 
-    # --- 2. TUŞ KONTROLLERİ ---
+    if step == "add_product_name":
+        ad = msg.text
+        user_steps[uid] = f"add_product_price:{ad}"
+        bot.send_message(msg.chat.id, f"💰 `{ad}` için fiyat yazın:")
+        return
+
+    if step and step.startswith("add_product_price:"):
+        ad = step.split(":")[1]
+        try:
+            fiyat = int(msg.text)
+            pid = str(int(time.time()))
+            products[pid] = {"ad": ad, "fiyat": fiyat}
+            save_data("products.json", products)
+            bot.send_message(msg.chat.id, "✅ Ürün markete eklendi.")
+        except: bot.send_message(msg.chat.id, "❌ Hata: Fiyat sayı olmalı.")
+        user_steps[uid] = None
+        return
+
+    # --- TUŞLAR ---
     if msg.text == "🛒 Market":
         if not products:
             bot.send_message(msg.chat.id, "❌ Market şu an boş.")
@@ -162,6 +180,10 @@ def handle_all(msg):
         user_steps[uid] = "admin_give_bal_id"
         bot.send_message(msg.chat.id, "Bakiye verilecek kişinin ID'sini yazın:")
 
+    elif msg.text == "➕ Ürün Ekle" and msg.from_user.id in ADMIN_ID:
+        user_steps[uid] = "add_product_name"
+        bot.send_message(msg.chat.id, "📦 Ürün ismini yazın:")
+
     elif msg.text == "⬅️ Menü":
         user_steps[uid] = None
         main_menu(msg)
@@ -194,7 +216,9 @@ def run():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
 if __name__ == "__main__":
-    Thread(target=run).start()
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
     bot.remove_webhook()
     print("Sistem Hazır!")
     bot.infinity_polling()
