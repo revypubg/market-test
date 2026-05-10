@@ -11,7 +11,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 ADMIN_ID = [8695334986]  
 
 LOG_KANAL = "-1003986617455" # -100 ile başlayan kanal ID'si
-KANALLAR = ["@PaulWalkerArsiv", "@BYZANTIUMKRALLIK"]
+KANALLAR = ["@PaulWalkerArsiv", "@BYZANTIUMS"]
 
 # Destek Menüsü Tasarımı
 DESTEK_MESAJI = """
