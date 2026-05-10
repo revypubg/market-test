@@ -3,7 +3,7 @@ from telebot import types
 import json, os, time
 
 # ================= AYARLAR =================
-BOT_TOKEN = "8725491244:AAFJFuUOEnr7RvZ31PHF4hPlPgBPEDqikRg"
+BOT_TOKEN = "8725491244:AAEJDvExPeJwY31eIGQwdTwmfJF5I44x-1I"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Buraya Kurucu ve 2 Adminin ID numaralarını ekle (Şu an seninkini yazdım)
@@ -23,7 +23,7 @@ Bir sorun mu yaşıyorsunuz? Ekibimize ulaşın:
 └ @WaIkerPaul
 
 🛡️ **ADMİNLER**
-├ @WaIkerPaul
+├ @KullaniciAdi_Admin1
 
 
 📌 *Lütfen mesaj atarken Bot ID'nizi belirtmeyi unutmayın.*
@@ -160,4 +160,3 @@ def back(msg): main_menu(msg)
 
 print("Paul Walker Market Sistemi Hazır!")
 bot.infinity_polling()
-                         
