@@ -3,7 +3,7 @@ from telebot import types
 import json, os, time
 
 # ================= AYARLAR =================
-BOT_TOKEN = "8725491244:AAEJDvExPeJwY31eIGQwdTwmfJF5I44x-1I"
+BOT_TOKEN = "8725491244:AAEJDvExPeJwY31eIGQwdTwmfJF5I44x-1I-1I"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Buraya Kurucu ve 2 Adminin ID numaralarını ekle (Şu an seninkini yazdım)
